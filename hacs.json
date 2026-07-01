@@ -1,0 +1,6 @@
+{
+  "name": "Janitza Modbus",
+  "render_readme": true,
+  "domains": ["sensor"],
+  "homeassistant": "2024.6.0"
+}

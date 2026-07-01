@@ -1,0 +1,11 @@
+{
+  "domain": "janitza_modbus",
+  "name": "Janitza Modbus",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/JanitzaElectronics/ha-janitza-modbus",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/JanitzaElectronics/ha-janitza-modbus/issues",
+  "requirements": ["pymodbus>=3.8.0"],
+  "version": "0.1.0"
+}
