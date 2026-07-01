@@ -1,0 +1,201 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Janitza Modbus",
+        "description": "Connect to a Janitza device over Modbus TCP.",
+        "data": {
+          "name": "Name",
+          "host": "Host",
+          "port": "Port",
+          "unit_id": "Unit ID",
+          "scan_interval": "Poll interval"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect or read the Janitza 19xxx register block.",
+      "invalid_host": "Enter a local host name or private IP address, not a URL.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This Janitza Modbus device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Janitza Modbus options",
+        "data": {
+          "scan_interval": "Poll interval"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "voltage_l1_n": {
+        "name": "Voltage L1-N"
+      },
+      "voltage_l2_n": {
+        "name": "Voltage L2-N"
+      },
+      "voltage_l3_n": {
+        "name": "Voltage L3-N"
+      },
+      "voltage_l1_l2": {
+        "name": "Voltage L1-L2"
+      },
+      "voltage_l2_l3": {
+        "name": "Voltage L2-L3"
+      },
+      "voltage_l3_l1": {
+        "name": "Voltage L3-L1"
+      },
+      "current_l1": {
+        "name": "Current L1"
+      },
+      "current_l2": {
+        "name": "Current L2"
+      },
+      "current_l3": {
+        "name": "Current L3"
+      },
+      "current_sum": {
+        "name": "Current vector sum"
+      },
+      "active_power_l1": {
+        "name": "Active power L1"
+      },
+      "active_power_l2": {
+        "name": "Active power L2"
+      },
+      "active_power_l3": {
+        "name": "Active power L3"
+      },
+      "active_power_total": {
+        "name": "Active power total"
+      },
+      "apparent_power_l1": {
+        "name": "Apparent power L1"
+      },
+      "apparent_power_l2": {
+        "name": "Apparent power L2"
+      },
+      "apparent_power_l3": {
+        "name": "Apparent power L3"
+      },
+      "apparent_power_total": {
+        "name": "Apparent power total"
+      },
+      "reactive_power_l1": {
+        "name": "Reactive power L1"
+      },
+      "reactive_power_l2": {
+        "name": "Reactive power L2"
+      },
+      "reactive_power_l3": {
+        "name": "Reactive power L3"
+      },
+      "reactive_power_total": {
+        "name": "Reactive power total"
+      },
+      "power_factor_l1": {
+        "name": "Power factor L1"
+      },
+      "power_factor_l2": {
+        "name": "Power factor L2"
+      },
+      "power_factor_l3": {
+        "name": "Power factor L3"
+      },
+      "frequency": {
+        "name": "Frequency"
+      },
+      "active_energy_total": {
+        "name": "Active energy"
+      },
+      "active_energy_consumed_total": {
+        "name": "Active energy consumed total"
+      },
+      "active_energy_consumed_l1": {
+        "name": "Active energy consumed L1"
+      },
+      "active_energy_consumed_l2": {
+        "name": "Active energy consumed L2"
+      },
+      "active_energy_consumed_l3": {
+        "name": "Active energy consumed L3"
+      },
+      "active_energy_delivered_total": {
+        "name": "Active energy delivered total"
+      },
+      "active_energy_delivered_l1": {
+        "name": "Active energy delivered L1"
+      },
+      "active_energy_delivered_l2": {
+        "name": "Active energy delivered L2"
+      },
+      "active_energy_delivered_l3": {
+        "name": "Active energy delivered L3"
+      },
+      "apparent_energy_total": {
+        "name": "Apparent energy total"
+      },
+      "apparent_energy_l1": {
+        "name": "Apparent energy L1"
+      },
+      "apparent_energy_l2": {
+        "name": "Apparent energy L2"
+      },
+      "apparent_energy_l3": {
+        "name": "Apparent energy L3"
+      },
+      "reactive_energy_total": {
+        "name": "Reactive energy total"
+      },
+      "reactive_energy_inductive_total": {
+        "name": "Reactive energy inductive total"
+      },
+      "reactive_energy_inductive_l1": {
+        "name": "Reactive energy inductive L1"
+      },
+      "reactive_energy_inductive_l2": {
+        "name": "Reactive energy inductive L2"
+      },
+      "reactive_energy_inductive_l3": {
+        "name": "Reactive energy inductive L3"
+      },
+      "reactive_energy_capacitive_total": {
+        "name": "Reactive energy capacitive total"
+      },
+      "reactive_energy_capacitive_l1": {
+        "name": "Reactive energy capacitive L1"
+      },
+      "reactive_energy_capacitive_l2": {
+        "name": "Reactive energy capacitive L2"
+      },
+      "reactive_energy_capacitive_l3": {
+        "name": "Reactive energy capacitive L3"
+      },
+      "voltage_thd_l1_n": {
+        "name": "Voltage THD L1-N"
+      },
+      "voltage_thd_l2_n": {
+        "name": "Voltage THD L2-N"
+      },
+      "voltage_thd_l3_n": {
+        "name": "Voltage THD L3-N"
+      },
+      "current_thd_l1": {
+        "name": "Current THD L1"
+      },
+      "current_thd_l2": {
+        "name": "Current THD L2"
+      },
+      "current_thd_l3": {
+        "name": "Current THD L3"
+      }
+    }
+  }
+}

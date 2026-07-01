@@ -10,7 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import JanitzaConfigEntry
 from .const import CONF_UNIT_ID, DOMAIN
 from .coordinator import JanitzaCoordinator
-from .registers import REGISTERS, JanitzaRegister
+from .registers import JanitzaRegister
 
 
 async def async_setup_entry(
@@ -21,7 +21,7 @@ async def async_setup_entry(
     """Set up Janitza Modbus sensor entities."""
     coordinator = entry.runtime_data
     async_add_entities(
-        JanitzaSensor(coordinator, entry, register) for register in REGISTERS
+        JanitzaSensor(coordinator, entry, register) for register in coordinator.registers
     )
 
 
@@ -41,7 +41,7 @@ class JanitzaSensor(CoordinatorEntity[JanitzaCoordinator], SensorEntity):
         self._register = register
         self.entity_description = SensorEntityDescription(
             key=register.key,
-            translation_key=register.key,
+            translation_key=register.translation_key,
             name=register.name,
             native_unit_of_measurement=register.native_unit_of_measurement,
             device_class=register.device_class,

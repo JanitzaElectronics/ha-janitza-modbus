@@ -17,6 +17,7 @@ measurement profile.
 - UI based setup through Home Assistant config entries
 - Local polling over Modbus TCP
 - Batched reads of the `19xxx` register block
+- Auto-discovery of readable UMG 801 current module groups
 - Energy dashboard friendly sensor metadata where applicable
 - HACS compatible repository layout
 
@@ -34,7 +35,7 @@ The setup flow asks for:
 
 - Hostname or IP address
 - TCP port, usually `502`
-- Modbus unit ID, usually `1`
+- Modbus unit ID, often `2` for Janitza measurement registers
 - Display name
 - Poll interval in seconds
 
@@ -68,6 +69,11 @@ example `19630+`. Those are not enabled by default because the integration
 currently performs one contiguous read of the shared `19000` through `19120`
 block.
 
+For UMG 801 devices, the integration also probes the documented current module
+group blocks starting at `19400`, `19500`, `19600`, and so on. Only groups that
+answer over Modbus are added as entities. This matches native Home Assistant
+Modbus examples such as `19410`, `19514`, and `19708`.
+
 The UMG 96-PA address list marks `19054` through `19058` and `19086` through
 `19090` as device-specific compared with other UMG-series devices. For that
 reason, the default catalogue uses the non-starred per-phase energy counters
@@ -77,6 +83,15 @@ from `19062` onward.
 
 Janitza devices and gateways may need Modbus TCP enabled in the device settings.
 Some installations also require firewall access to TCP port `502`.
+If connection tests fail but Home Assistant's native Modbus integration works,
+double-check the Modbus unit ID. On some Janitza setups the generic `19xxx`
+measurement registers are exposed on slave/unit `2` rather than `1`.
+
+The UMG 801 workbook in the repository also documents a per-slot information
+area at `4178 + 80 * (slot - 1)`. In that block, `+68` stores the slot state
+and `+69` the module type. That is useful for future metadata work, but the
+integration currently discovers module measurement groups by probing the
+readable `19400+` address blocks directly.
 
 [contributors-shield]: https://img.shields.io/github/contributors/JanitzaElectronics/ha-janitza-modbus
 [contributors]: https://github.com/JanitzaElectronics/ha-janitza-modbus/graphs/contributors

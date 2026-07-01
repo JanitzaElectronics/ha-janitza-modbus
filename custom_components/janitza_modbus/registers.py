@@ -26,8 +26,14 @@ class JanitzaRegister:
     native_unit_of_measurement: str | None
     device_class: SensorDeviceClass | None
     state_class: SensorStateClass
+    translation_key: str | None = None
     suggested_display_precision: int | None = 2
     entity_registry_enabled_default: bool = True
+
+    def __post_init__(self) -> None:
+        """Default translation keys for static registers only."""
+        if self.translation_key is None and not self.key.startswith("module_"):
+            object.__setattr__(self, "translation_key", self.key)
 
 
 REGISTERS: tuple[JanitzaRegister, ...] = (
@@ -470,3 +476,283 @@ REGISTERS: tuple[JanitzaRegister, ...] = (
 
 MIN_REGISTER_ADDRESS = min(register.address for register in REGISTERS)
 MAX_REGISTER_ADDRESS = max(register.address for register in REGISTERS)
+
+MODULE_GROUP_COUNT = 20
+MODULE_GROUP_BASE_ADDRESS = 19400
+MODULE_GROUP_ADDRESS_STRIDE = 100
+MODULE_GROUP_READ_COUNT = 100
+
+_MODULE_REGISTER_SPECS: tuple[
+    tuple[str, int, str, str | None, SensorDeviceClass | None, SensorStateClass, bool],
+    ...,
+] = (
+    (
+        "current_i1",
+        0,
+        "Current I1",
+        UnitOfElectricCurrent.AMPERE,
+        SensorDeviceClass.CURRENT,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "current_i2",
+        2,
+        "Current I2",
+        UnitOfElectricCurrent.AMPERE,
+        SensorDeviceClass.CURRENT,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "current_i3",
+        4,
+        "Current I3",
+        UnitOfElectricCurrent.AMPERE,
+        SensorDeviceClass.CURRENT,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "current_i4",
+        6,
+        "Current I4",
+        UnitOfElectricCurrent.AMPERE,
+        SensorDeviceClass.CURRENT,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "active_power_p1",
+        8,
+        "Active power P1",
+        UnitOfPower.WATT,
+        SensorDeviceClass.POWER,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "active_power_p2",
+        10,
+        "Active power P2",
+        UnitOfPower.WATT,
+        SensorDeviceClass.POWER,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "active_power_p3",
+        12,
+        "Active power P3",
+        UnitOfPower.WATT,
+        SensorDeviceClass.POWER,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "active_power_sum",
+        14,
+        "Active power sum",
+        UnitOfPower.WATT,
+        SensorDeviceClass.POWER,
+        SensorStateClass.MEASUREMENT,
+        True,
+    ),
+    (
+        "apparent_power_s1",
+        16,
+        "Apparent power S1",
+        UnitOfApparentPower.VOLT_AMPERE,
+        SensorDeviceClass.APPARENT_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "apparent_power_s2",
+        18,
+        "Apparent power S2",
+        UnitOfApparentPower.VOLT_AMPERE,
+        SensorDeviceClass.APPARENT_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "apparent_power_s3",
+        20,
+        "Apparent power S3",
+        UnitOfApparentPower.VOLT_AMPERE,
+        SensorDeviceClass.APPARENT_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "apparent_power_sum",
+        22,
+        "Apparent power sum",
+        UnitOfApparentPower.VOLT_AMPERE,
+        SensorDeviceClass.APPARENT_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "reactive_power_q1",
+        24,
+        "Reactive power Q1",
+        UnitOfReactivePower.VOLT_AMPERE_REACTIVE,
+        SensorDeviceClass.REACTIVE_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "reactive_power_q2",
+        26,
+        "Reactive power Q2",
+        UnitOfReactivePower.VOLT_AMPERE_REACTIVE,
+        SensorDeviceClass.REACTIVE_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "reactive_power_q3",
+        28,
+        "Reactive power Q3",
+        UnitOfReactivePower.VOLT_AMPERE_REACTIVE,
+        SensorDeviceClass.REACTIVE_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "reactive_power_sum",
+        30,
+        "Reactive power sum",
+        UnitOfReactivePower.VOLT_AMPERE_REACTIVE,
+        SensorDeviceClass.REACTIVE_POWER,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "power_factor_l1",
+        32,
+        "Power factor L1",
+        None,
+        SensorDeviceClass.POWER_FACTOR,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "power_factor_l2",
+        34,
+        "Power factor L2",
+        None,
+        SensorDeviceClass.POWER_FACTOR,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "power_factor_l3",
+        36,
+        "Power factor L3",
+        None,
+        SensorDeviceClass.POWER_FACTOR,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "active_energy_w1",
+        38,
+        "Active energy W1",
+        UnitOfEnergy.WATT_HOUR,
+        SensorDeviceClass.ENERGY,
+        SensorStateClass.TOTAL,
+        False,
+    ),
+    (
+        "active_energy_w2",
+        40,
+        "Active energy W2",
+        UnitOfEnergy.WATT_HOUR,
+        SensorDeviceClass.ENERGY,
+        SensorStateClass.TOTAL,
+        False,
+    ),
+    (
+        "active_energy_w3",
+        42,
+        "Active energy W3",
+        UnitOfEnergy.WATT_HOUR,
+        SensorDeviceClass.ENERGY,
+        SensorStateClass.TOTAL,
+        False,
+    ),
+    (
+        "active_energy_sum",
+        44,
+        "Active energy sum",
+        UnitOfEnergy.WATT_HOUR,
+        SensorDeviceClass.ENERGY,
+        SensorStateClass.TOTAL,
+        True,
+    ),
+    (
+        "current_thd_i1",
+        94,
+        "Current THD I1",
+        "%",
+        None,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "current_thd_i2",
+        96,
+        "Current THD I2",
+        "%",
+        None,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+    (
+        "current_thd_i3",
+        98,
+        "Current THD I3",
+        "%",
+        None,
+        SensorStateClass.MEASUREMENT,
+        False,
+    ),
+)
+
+
+def module_group_base_address(group: int) -> int:
+    """Return the documented base address for a UMG801 current module group."""
+    return MODULE_GROUP_BASE_ADDRESS + ((int(group) - 1) * MODULE_GROUP_ADDRESS_STRIDE)
+
+
+def build_module_group_registers(
+    group: int,
+    *,
+    label: str | None = None,
+) -> tuple[JanitzaRegister, ...]:
+    """Build the default sensor catalogue for one discovered UMG801 module group."""
+    base_address = module_group_base_address(group)
+    group_name = label or f"Module {group:02d}"
+    return tuple(
+        JanitzaRegister(
+            key=f"module_{group:02d}_{key}",
+            address=base_address + offset,
+            name=f"{group_name} {name}",
+            native_unit_of_measurement=unit,
+            device_class=device_class,
+            state_class=state_class,
+            entity_registry_enabled_default=enabled_by_default,
+        )
+        for (
+            key,
+            offset,
+            name,
+            unit,
+            device_class,
+            state_class,
+            enabled_by_default,
+        ) in _MODULE_REGISTER_SPECS
+    )

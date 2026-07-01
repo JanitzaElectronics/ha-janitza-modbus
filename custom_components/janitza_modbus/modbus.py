@@ -34,13 +34,13 @@ class JanitzaModbusClient:
 
             try:
                 result = await self._client.read_holding_registers(
-                    address=address,
+                    address=int(address),
                     count=count,
                     device_id=self._unit_id,
                 )
             except TypeError:
                 result = await self._client.read_holding_registers(
-                    address=address,
+                    address=int(address),
                     count=count,
                     slave=self._unit_id,
                 )
