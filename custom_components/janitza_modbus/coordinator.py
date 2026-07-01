@@ -26,8 +26,8 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
         """Initialize the Janitza coordinator."""
         self._client = JanitzaModbusClient(
             host=entry.data["host"],
-            port=entry.data["port"],
-            unit_id=entry.data[CONF_UNIT_ID],
+            port=int(entry.data["port"]),
+            unit_id=int(entry.data[CONF_UNIT_ID]),
         )
 
         super().__init__(
@@ -35,7 +35,7 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
             _LOGGER,
             config_entry=entry,
             name=DOMAIN,
-            update_interval=timedelta(seconds=entry.data[CONF_SCAN_INTERVAL]),
+            update_interval=timedelta(seconds=int(entry.data[CONF_SCAN_INTERVAL])),
         )
 
     async def async_close(self) -> None:

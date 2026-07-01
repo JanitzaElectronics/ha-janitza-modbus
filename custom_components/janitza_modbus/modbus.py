@@ -15,8 +15,8 @@ class JanitzaModbusClient:
     """Async Modbus TCP client for Janitza 19xxx holding registers."""
 
     def __init__(self, host: str, port: int, unit_id: int) -> None:
-        self._unit_id = unit_id
-        self._client = AsyncModbusTcpClient(host=host, port=port)
+        self._unit_id = int(unit_id)
+        self._client = AsyncModbusTcpClient(host=host, port=int(port))
 
     async def async_close(self) -> None:
         """Close the Modbus connection."""

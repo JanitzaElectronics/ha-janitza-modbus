@@ -52,6 +52,7 @@ class JanitzaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            user_input = _normalize_user_input(user_input)
             await self.async_set_unique_id(
                 f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}:{user_input[CONF_UNIT_ID]}"
             )
@@ -99,6 +100,7 @@ class JanitzaOptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage Janitza options."""
         if user_input is not None:
+            user_input = _normalize_options_input(user_input)
             self.hass.config_entries.async_update_entry(
                 self._config_entry,
                 data={**self._config_entry.data, **user_input},
@@ -150,6 +152,25 @@ def _user_schema(user_input: dict[str, Any] | None = None) -> vol.Schema:
             ),
         }
     )
+
+
+def _normalize_user_input(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Normalize selector values before saving config entry data."""
+    return {
+        **user_input,
+        CONF_HOST: str(user_input[CONF_HOST]).strip(),
+        CONF_PORT: int(user_input[CONF_PORT]),
+        CONF_UNIT_ID: int(user_input[CONF_UNIT_ID]),
+        CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
+    }
+
+
+def _normalize_options_input(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Normalize selector values before saving option updates."""
+    return {
+        **user_input,
+        CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
+    }
 
 
 def _options_schema(data: dict[str, Any]) -> vol.Schema:
