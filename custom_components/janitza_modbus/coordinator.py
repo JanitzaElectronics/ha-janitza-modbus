@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+import struct
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -52,9 +53,12 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
         except JanitzaModbusError as err:
             raise UpdateFailed(str(err)) from err
 
-        values: dict[str, float] = {}
-        for register in REGISTERS:
-            index = register.address - MIN_REGISTER_ADDRESS
-            values[register.key] = round(decode_float32(registers, index), 6)
+        try:
+            values: dict[str, float] = {}
+            for register in REGISTERS:
+                index = register.address - MIN_REGISTER_ADDRESS
+                values[register.key] = round(decode_float32(registers, index), 6)
+        except (IndexError, struct.error, ValueError) as err:
+            raise UpdateFailed(str(err)) from err
 
         return values

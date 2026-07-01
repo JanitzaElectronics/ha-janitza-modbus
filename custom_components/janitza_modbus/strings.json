@@ -15,6 +15,7 @@
     },
     "error": {
       "cannot_connect": "Unable to connect or read the Janitza 19xxx register block.",
+      "invalid_host": "Enter a local host name or private IP address, not a URL.",
       "unknown": "Unexpected error"
     },
     "abort": {

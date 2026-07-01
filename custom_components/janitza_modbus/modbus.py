@@ -6,6 +6,8 @@ from collections.abc import Sequence
 
 from pymodbus.client import AsyncModbusTcpClient
 
+from .validation import validate_register_block
+
 
 class JanitzaModbusError(Exception):
     """Raised when a Janitza Modbus request fails."""
@@ -26,22 +28,36 @@ class JanitzaModbusClient:
         self, address: int, count: int
     ) -> Sequence[int]:
         """Read holding registers from the configured Modbus unit."""
-        if not self._client.connected and not await self._client.connect():
-            raise JanitzaModbusError("Unable to connect to Modbus device")
+        try:
+            if not self._client.connected and not await self._client.connect():
+                raise JanitzaModbusError("Unable to connect to Modbus device")
+
+            try:
+                result = await self._client.read_holding_registers(
+                    address=address,
+                    count=count,
+                    device_id=self._unit_id,
+                )
+            except TypeError:
+                result = await self._client.read_holding_registers(
+                    address=address,
+                    count=count,
+                    slave=self._unit_id,
+                )
+        except JanitzaModbusError:
+            raise
+        except Exception as err:
+            raise JanitzaModbusError(str(err)) from err
 
         try:
-            result = await self._client.read_holding_registers(
-                address=address,
-                count=count,
-                device_id=self._unit_id,
-            )
-        except TypeError:
-            result = await self._client.read_holding_registers(
-                address=address,
-                count=count,
-                slave=self._unit_id,
-            )
-        if result.isError():
-            raise JanitzaModbusError(str(result))
+            if result.isError():
+                raise JanitzaModbusError(str(result))
 
-        return result.registers
+            registers = result.registers
+            validate_register_block(registers, count)
+        except JanitzaModbusError:
+            raise
+        except (AttributeError, TypeError, ValueError) as err:
+            raise JanitzaModbusError(str(err)) from err
+
+        return registers

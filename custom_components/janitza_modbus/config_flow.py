@@ -25,6 +25,7 @@ from .const import (
 )
 from .modbus import JanitzaModbusClient, JanitzaModbusError
 from .registers import MIN_REGISTER_ADDRESS
+from .validation import normalize_host
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,28 +53,33 @@ class JanitzaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            user_input = _normalize_user_input(user_input)
-            await self.async_set_unique_id(
-                f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}:{user_input[CONF_UNIT_ID]}"
-            )
-            self._abort_if_unique_id_configured()
-
             try:
-                await _async_validate_connection(
-                    user_input[CONF_HOST],
-                    user_input[CONF_PORT],
-                    user_input[CONF_UNIT_ID],
-                )
-            except JanitzaModbusError:
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Unexpected error validating Janitza device")
-                errors["base"] = "unknown"
+                user_input = _normalize_user_input(user_input)
+            except ValueError:
+                errors["base"] = "invalid_host"
             else:
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME],
-                    data=user_input,
+                await self.async_set_unique_id(
+                    f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}:{user_input[CONF_UNIT_ID]}"
                 )
+                self._abort_if_unique_id_configured()
+
+            if not errors:
+                try:
+                    await _async_validate_connection(
+                        user_input[CONF_HOST],
+                        user_input[CONF_PORT],
+                        user_input[CONF_UNIT_ID],
+                    )
+                except JanitzaModbusError:
+                    errors["base"] = "cannot_connect"
+                except Exception:
+                    _LOGGER.exception("Unexpected error validating Janitza device")
+                    errors["base"] = "unknown"
+                else:
+                    return self.async_create_entry(
+                        title=user_input[CONF_NAME],
+                        data=user_input,
+                    )
 
         return self.async_show_form(
             step_id="user",
@@ -158,7 +164,7 @@ def _normalize_user_input(user_input: dict[str, Any]) -> dict[str, Any]:
     """Normalize selector values before saving config entry data."""
     return {
         **user_input,
-        CONF_HOST: str(user_input[CONF_HOST]).strip(),
+        CONF_HOST: normalize_host(user_input[CONF_HOST]),
         CONF_PORT: int(user_input[CONF_PORT]),
         CONF_UNIT_ID: int(user_input[CONF_UNIT_ID]),
         CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
