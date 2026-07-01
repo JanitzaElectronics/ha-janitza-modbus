@@ -1,5 +1,10 @@
 # Janitza Modbus for Home Assistant
 
+[![GitHub Release][releases-shield]][releases]
+[![Contributors][contributors-shield]][contributors]
+[![Stars][stars-shield]][stars]
+[![Issues][issues-shield]][issues]
+
 Custom Home Assistant integration for Janitza energy measurement devices over
 Modbus TCP.
 
@@ -72,3 +77,12 @@ from `19062` onward.
 
 Janitza devices and gateways may need Modbus TCP enabled in the device settings.
 Some installations also require firewall access to TCP port `502`.
+
+[contributors-shield]: https://img.shields.io/github/contributors/JanitzaElectronics/ha-janitza-modbus
+[contributors]: https://github.com/JanitzaElectronics/ha-janitza-modbus/graphs/contributors
+[issues-shield]: https://img.shields.io/github/issues/JanitzaElectronics/ha-janitza-modbus
+[issues]: https://github.com/JanitzaElectronics/ha-janitza-modbus/issues
+[releases-shield]: https://img.shields.io/github/v/release/JanitzaElectronics/ha-janitza-modbus?sort=semver
+[releases]: https://github.com/JanitzaElectronics/ha-janitza-modbus/releases
+[stars-shield]: https://img.shields.io/github/stars/JanitzaElectronics/ha-janitza-modbus?style=flat
+[stars]: https://github.com/JanitzaElectronics/ha-janitza-modbus/stargazers
