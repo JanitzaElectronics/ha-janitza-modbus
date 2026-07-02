@@ -1,8 +1,12 @@
 """Tests for Janitza Modbus helpers."""
 
+import asyncio
 import ast
 import importlib.util
 from pathlib import Path
+import sys
+import types
+from unittest.mock import AsyncMock, patch
 
 
 def _load_decode_float32():
@@ -15,8 +19,56 @@ def _load_validation_module():
     return _load_module("janitza_validation", "validation.py")
 
 
+def _load_registers_module():
+    """Load register helpers with small Home Assistant stubs."""
+    sensor_module = types.ModuleType("homeassistant.components.sensor")
+
+    class SensorDeviceClass:
+        VOLTAGE = "voltage"
+        CURRENT = "current"
+        POWER = "power"
+        APPARENT_POWER = "apparent_power"
+        REACTIVE_POWER = "reactive_power"
+        REACTIVE_ENERGY = "reactive_energy"
+        POWER_FACTOR = "power_factor"
+        FREQUENCY = "frequency"
+        ENERGY = "energy"
+
+    class SensorStateClass:
+        MEASUREMENT = "measurement"
+        TOTAL = "total"
+
+    sensor_module.SensorDeviceClass = SensorDeviceClass
+    sensor_module.SensorStateClass = SensorStateClass
+
+    const_module = types.ModuleType("homeassistant.const")
+
+    class _Unit:
+        def __init__(self, **entries):
+            for key, value in entries.items():
+                setattr(self, key, value)
+
+    const_module.UnitOfApparentPower = _Unit(VOLT_AMPERE="VA")
+    const_module.UnitOfElectricCurrent = _Unit(AMPERE="A")
+    const_module.UnitOfElectricPotential = _Unit(VOLT="V")
+    const_module.UnitOfEnergy = _Unit(WATT_HOUR="Wh")
+    const_module.UnitOfFrequency = _Unit(HERTZ="Hz")
+    const_module.UnitOfPower = _Unit(WATT="W")
+    const_module.UnitOfReactivePower = _Unit(VOLT_AMPERE_REACTIVE="var")
+
+    sys.modules.setdefault("homeassistant", types.ModuleType("homeassistant"))
+    sys.modules.setdefault("homeassistant.components", types.ModuleType("homeassistant.components"))
+    sys.modules["homeassistant.components.sensor"] = sensor_module
+    sys.modules["homeassistant.const"] = const_module
+
+    return _load_module("janitza_registers", "registers.py")
+
+
 def _load_module(module_name: str, file_name: str):
     """Load an integration module file without importing package __init__."""
+    if file_name == "modbus.py":
+        return _load_modbus_module()
+
     module_path = (
         Path(__file__).parents[1]
         / "custom_components"
@@ -27,6 +79,40 @@ def _load_module(module_name: str, file_name: str):
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_modbus_module():
+    """Load the Modbus client with PyModbus and package stubs."""
+    pymodbus_module = types.ModuleType("pymodbus")
+    pymodbus_client_module = types.ModuleType("pymodbus.client")
+
+    class AsyncModbusTcpClient:
+        pass
+
+    pymodbus_client_module.AsyncModbusTcpClient = AsyncModbusTcpClient
+    sys.modules["pymodbus"] = pymodbus_module
+    sys.modules["pymodbus.client"] = pymodbus_client_module
+
+    package_root = Path(__file__).parents[1] / "custom_components"
+    integration_root = package_root / "janitza_modbus"
+    custom_components_module = types.ModuleType("custom_components")
+    custom_components_module.__path__ = [str(package_root)]
+    integration_module = types.ModuleType("custom_components.janitza_modbus")
+    integration_module.__path__ = [str(integration_root)]
+    sys.modules["custom_components"] = custom_components_module
+    sys.modules["custom_components.janitza_modbus"] = integration_module
+
+    module_path = integration_root / "modbus.py"
+    spec = importlib.util.spec_from_file_location(
+        "custom_components.janitza_modbus.modbus", module_path
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["custom_components.janitza_modbus.modbus"] = module
     spec.loader.exec_module(module)
     return module
 
@@ -35,6 +121,12 @@ def test_decode_float32_big_endian() -> None:
     """Decode two registers as a big-endian float."""
     decode_float32 = _load_decode_float32()
     assert decode_float32([0x4366, 0x0000], 0) == 230.0
+
+
+def test_decode_string_nul_terminated() -> None:
+    """Decode a Modbus string register block."""
+    decode_string = _load_module("janitza_codec_string", "codec.py").decode_string
+    assert decode_string([0x4D31, 0x0000, 0x4142]) == "M1"
 
 
 def test_normalize_host_accepts_local_targets() -> None:
@@ -102,6 +194,77 @@ def test_classify_modbus_error_messages() -> None:
     )
 
 
+def test_modbus_client_uses_documented_register_address() -> None:
+    """Pass the documented Janitza register number through unchanged."""
+    modbus = _load_module("janitza_modbus_client", "modbus.py")
+    response = _FakeResponse([0x4366, 0x0000])
+    connect = AsyncMock(return_value=True)
+    read_holding_registers = AsyncMock(return_value=response)
+
+    with patch.object(
+        modbus, "AsyncModbusTcpClient", autospec=True
+    ) as client_factory:
+        client = client_factory.return_value
+        client.connected = False
+        client.connect = connect
+        client.read_holding_registers = read_holding_registers
+
+        janitza_client = modbus.JanitzaModbusClient("192.168.1.20", 502, 1)
+        registers = asyncio.run(
+            janitza_client.async_read_holding_registers(19000, 2)
+        )
+
+    assert registers == [0x4366, 0x0000]
+    read_holding_registers.assert_awaited_once_with(
+        address=19000,
+        count=2,
+        device_id=1,
+    )
+
+
+def test_runtime_translation_bundle_exists() -> None:
+    """Ship the runtime English translation bundle for config flow errors."""
+    translation_path = (
+        Path(__file__).parents[1]
+        / "custom_components"
+        / "janitza_modbus"
+        / "translations"
+        / "en.json"
+    )
+
+    assert translation_path.is_file()
+    assert '"cannot_connect"' in translation_path.read_text()
+
+
+def test_module_group_base_addresses_match_docs() -> None:
+    """UMG801 current module groups advance in documented 100-register steps."""
+    registers = _load_registers_module()
+
+    assert registers.module_group_base_address(1) == 19400
+    assert registers.module_group_base_address(2) == 19500
+    assert registers.module_group_base_address(4) == 19700
+
+
+def test_module_group_registers_match_known_native_modbus_addresses() -> None:
+    """Module sensor templates should match the working native Modbus examples."""
+    registers = _load_registers_module()
+    module_01 = {register.key: register.address for register in registers.build_module_group_registers(1)}
+    module_02 = {register.key: register.address for register in registers.build_module_group_registers(2)}
+    module_04 = {register.key: register.address for register in registers.build_module_group_registers(4)}
+
+    assert module_01["module_01_active_power_p2"] == 19410
+    assert module_02["module_02_active_power_sum"] == 19514
+    assert module_04["module_04_active_power_p1"] == 19708
+
+
+def test_module_group_registers_can_use_modbus_module_label() -> None:
+    """Discovered module names should flow into generated entity names."""
+    registers = _load_registers_module()
+    named_registers = registers.build_module_group_registers(1, label="M1 Group 1")
+
+    assert named_registers[0].name == "M1 Group 1 Current I1"
+
+
 def test_registers_use_only_19xxx_addresses() -> None:
     """Ensure the generic register catalogue stays in the requested range."""
     addresses = _register_addresses()
@@ -167,3 +330,14 @@ def _register_addresses() -> dict[str, int]:
 
     assert len(keys) == len(addresses)
     return dict(zip(keys, addresses))
+
+
+class _FakeResponse:
+    """Small Modbus response stub used by async client tests."""
+
+    def __init__(self, registers: list[int]) -> None:
+        self.registers = registers
+
+    def isError(self) -> bool:
+        """Pretend the Modbus request succeeded."""
+        return False
