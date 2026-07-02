@@ -80,6 +80,28 @@ def test_validate_register_block_rejects_malformed_replies() -> None:
         raise AssertionError(f"Expected registers to be rejected: {registers}")
 
 
+def test_classify_modbus_error_messages() -> None:
+    """Classify common PyModbus messages for setup-flow feedback."""
+    validation = _load_validation_module()
+
+    assert (
+        validation.classify_modbus_error("No response received after 3 retries")
+        == validation.MODBUS_ERROR_NO_RESPONSE
+    )
+    assert (
+        validation.classify_modbus_error("Timed out waiting for response")
+        == validation.MODBUS_ERROR_NO_RESPONSE
+    )
+    assert (
+        validation.classify_modbus_error("Exception Response(131, 3, IllegalAddress)")
+        == validation.MODBUS_ERROR_MODBUS_EXCEPTION
+    )
+    assert (
+        validation.classify_modbus_error("Unexpected transport failure")
+        == validation.MODBUS_ERROR_UNKNOWN
+    )
+
+
 def test_registers_use_only_19xxx_addresses() -> None:
     """Ensure the generic register catalogue stays in the requested range."""
     addresses = _register_addresses()

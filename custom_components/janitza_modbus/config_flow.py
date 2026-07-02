@@ -25,7 +25,13 @@ from .const import (
 )
 from .modbus import JanitzaModbusClient, JanitzaModbusError
 from .registers import MIN_REGISTER_ADDRESS
-from .validation import normalize_host
+from .validation import (
+    MODBUS_ERROR_CONNECT,
+    MODBUS_ERROR_INVALID_RESPONSE,
+    MODBUS_ERROR_MODBUS_EXCEPTION,
+    MODBUS_ERROR_NO_RESPONSE,
+    normalize_host,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,8 +76,8 @@ class JanitzaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         user_input[CONF_PORT],
                         user_input[CONF_UNIT_ID],
                     )
-                except JanitzaModbusError:
-                    errors["base"] = "cannot_connect"
+                except JanitzaModbusError as err:
+                    errors["base"] = _error_key_for_modbus_error(err)
                 except Exception:
                     _LOGGER.exception("Unexpected error validating Janitza device")
                     errors["base"] = "unknown"
@@ -177,6 +183,20 @@ def _normalize_options_input(user_input: dict[str, Any]) -> dict[str, Any]:
         **user_input,
         CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
     }
+
+
+def _error_key_for_modbus_error(error: JanitzaModbusError) -> str:
+    """Return the setup-flow error key for a Modbus validation failure."""
+    reason = error.reason
+    if reason == MODBUS_ERROR_CONNECT:
+        return "cannot_connect"
+    if reason == MODBUS_ERROR_NO_RESPONSE:
+        return "no_response"
+    if reason == MODBUS_ERROR_MODBUS_EXCEPTION:
+        return "modbus_exception"
+    if reason == MODBUS_ERROR_INVALID_RESPONSE:
+        return "invalid_response"
+    return "unknown"
 
 
 def _options_schema(data: dict[str, Any]) -> vol.Schema:

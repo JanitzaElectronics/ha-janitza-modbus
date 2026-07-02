@@ -6,11 +6,23 @@ from collections.abc import Sequence
 
 from pymodbus.client import AsyncModbusTcpClient
 
-from .validation import validate_register_block
+from .validation import (
+    MODBUS_ERROR_CONNECT,
+    MODBUS_ERROR_INVALID_RESPONSE,
+    MODBUS_ERROR_MODBUS_EXCEPTION,
+    MODBUS_ERROR_NO_RESPONSE,
+    MODBUS_ERROR_UNKNOWN,
+    classify_modbus_error,
+    validate_register_block,
+)
 
 
 class JanitzaModbusError(Exception):
     """Raised when a Janitza Modbus request fails."""
+
+    def __init__(self, message: str, reason: str) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class JanitzaModbusClient:
@@ -30,7 +42,10 @@ class JanitzaModbusClient:
         """Read holding registers from the configured Modbus unit."""
         try:
             if not self._client.connected and not await self._client.connect():
-                raise JanitzaModbusError("Unable to connect to Modbus device")
+                raise JanitzaModbusError(
+                    "Unable to open TCP connection to Modbus device",
+                    MODBUS_ERROR_CONNECT,
+                )
 
             try:
                 result = await self._client.read_holding_registers(
@@ -47,17 +62,23 @@ class JanitzaModbusClient:
         except JanitzaModbusError:
             raise
         except Exception as err:
-            raise JanitzaModbusError(str(err)) from err
+            raise JanitzaModbusError(str(err), MODBUS_ERROR_NO_RESPONSE) from err
 
         try:
             if result.isError():
-                raise JanitzaModbusError(str(result))
+                message = str(result)
+                reason = classify_modbus_error(message)
+                if reason == MODBUS_ERROR_UNKNOWN:
+                    reason = MODBUS_ERROR_MODBUS_EXCEPTION
+                raise JanitzaModbusError(message, reason)
 
             registers = result.registers
             validate_register_block(registers, count)
         except JanitzaModbusError:
             raise
         except (AttributeError, TypeError, ValueError) as err:
-            raise JanitzaModbusError(str(err)) from err
+            raise JanitzaModbusError(
+                str(err), MODBUS_ERROR_INVALID_RESPONSE
+            ) from err
 
         return registers

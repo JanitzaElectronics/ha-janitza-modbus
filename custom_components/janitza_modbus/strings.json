@@ -14,8 +14,11 @@
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect or read the Janitza 19xxx register block.",
+      "cannot_connect": "Unable to open a TCP connection. Check the host, port, firewall, and whether Modbus TCP is enabled.",
       "invalid_host": "Enter a local host name or private IP address, not a URL.",
+      "invalid_response": "The device replied, but the response was not a valid 16-bit Modbus register block for the Janitza 19xxx range.",
+      "modbus_exception": "The device returned a Modbus exception while reading the Janitza 19xxx range. Check that the device supports this register block.",
+      "no_response": "Connected to the host, but no Modbus response was received. Check the Unit ID and that Modbus TCP is enabled on the device.",
       "unknown": "Unexpected error"
     },
     "abort": {
