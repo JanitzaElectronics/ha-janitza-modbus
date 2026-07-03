@@ -21,6 +21,12 @@ measurement profile.
 - Energy dashboard friendly sensor metadata where applicable
 - HACS compatible repository layout
 
+## Release 0.2.0
+
+This release adds UMG 801 current module support. The integration now probes
+the documented module measurement blocks from `19400` onward and creates module
+entities only for groups that answer over Modbus.
+
 ## Installation with HACS
 
 1. Add `https://github.com/JanitzaElectronics/ha-janitza-modbus` as a custom
