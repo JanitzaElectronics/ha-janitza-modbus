@@ -21,6 +21,12 @@ measurement profile.
 - Energy dashboard friendly sensor metadata where applicable
 - HACS compatible repository layout
 
+## Release 0.2.1
+
+Small stability release. Non-finite Modbus float values such as `nan` and
+`inf` are now treated as unavailable sensor samples so Home Assistant does not
+reject numeric sensor state updates.
+
 ## Release 0.2.0
 
 This release adds UMG 801 current module support. The integration now probes

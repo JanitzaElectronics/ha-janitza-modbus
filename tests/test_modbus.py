@@ -123,6 +123,17 @@ def test_decode_float32_big_endian() -> None:
     assert decode_float32([0x4366, 0x0000], 0) == 230.0
 
 
+def test_decode_finite_float32_rejects_non_finite_values() -> None:
+    """Convert IEEE-754 NaN and infinity payloads to None."""
+    decode_finite_float32 = _load_module(
+        "janitza_codec_finite", "codec.py"
+    ).decode_finite_float32
+
+    assert decode_finite_float32([0x4366, 0x0000], 0) == 230.0
+    assert decode_finite_float32([0x7FC0, 0x0000], 0) is None
+    assert decode_finite_float32([0x7F80, 0x0000], 0) is None
+
+
 def test_decode_string_nul_terminated() -> None:
     """Decode a Modbus string register block."""
     decode_string = _load_module("janitza_codec_string", "codec.py").decode_string

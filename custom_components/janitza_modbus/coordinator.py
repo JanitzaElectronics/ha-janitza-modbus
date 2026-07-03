@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .codec import decode_float32, decode_string
+from .codec import decode_finite_float32, decode_string
 from .const import CONF_SCAN_INTERVAL, CONF_UNIT_ID, DOMAIN
 from .modbus import JanitzaModbusClient, JanitzaModbusError
 from .registers import (
@@ -38,7 +38,7 @@ MODULE_TYPE_TO_GROUP_COUNT = {
 }
 
 
-class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
+class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
     """Coordinator that reads Janitza 19xxx registers."""
 
     config_entry: ConfigEntry
@@ -66,7 +66,7 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
         """Close the Modbus client."""
         await self._client.async_close()
 
-    async def _async_update_data(self) -> dict[str, float]:
+    async def _async_update_data(self) -> dict[str, float | None]:
         """Fetch all configured 19xxx register values."""
         if not self._module_groups_discovered:
             await self._async_discover_module_groups()
@@ -80,10 +80,11 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
             raise UpdateFailed(str(err)) from err
 
         try:
-            values: dict[str, float] = {}
+            values: dict[str, float | None] = {}
             for register in REGISTERS:
                 index = register.address - MIN_REGISTER_ADDRESS
-                values[register.key] = round(decode_float32(registers, index), 6)
+                value = decode_finite_float32(registers, index)
+                values[register.key] = round(value, 6) if value is not None else None
 
             for group in self._discovered_module_groups():
                 group_registers = build_module_group_registers(
@@ -97,8 +98,9 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float]]):
                 )
                 for register in group_registers:
                     index = register.address - group_base
-                    values[register.key] = round(
-                        decode_float32(group_block, index), 6
+                    value = decode_finite_float32(group_block, index)
+                    values[register.key] = (
+                        round(value, 6) if value is not None else None
                     )
         except (IndexError, struct.error, ValueError) as err:
             raise UpdateFailed(str(err)) from err

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import struct
 from collections.abc import Sequence
 
@@ -10,6 +11,12 @@ def decode_float32(registers: Sequence[int], index: int) -> float:
     """Decode a big-endian IEEE-754 float from two Modbus registers."""
     raw = struct.pack(">HH", registers[index], registers[index + 1])
     return struct.unpack(">f", raw)[0]
+
+
+def decode_finite_float32(registers: Sequence[int], index: int) -> float | None:
+    """Decode a finite big-endian IEEE-754 float from two Modbus registers."""
+    value = decode_float32(registers, index)
+    return value if math.isfinite(value) else None
 
 
 def decode_string(registers: Sequence[int]) -> str:
