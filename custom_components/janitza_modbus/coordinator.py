@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 import logging
 import struct
@@ -68,9 +69,6 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
 
     async def _async_update_data(self) -> dict[str, float | None]:
         """Fetch all configured 19xxx register values."""
-        if not self._module_groups_discovered:
-            await self._async_discover_module_groups()
-
         count = MAX_REGISTER_ADDRESS - MIN_REGISTER_ADDRESS + 2
         try:
             registers = await self._client.async_read_holding_registers(
@@ -85,7 +83,13 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
                 index = register.address - MIN_REGISTER_ADDRESS
                 value = decode_finite_float32(registers, index)
                 values[register.key] = round(value, 6) if value is not None else None
+        except (IndexError, struct.error, ValueError) as err:
+            raise UpdateFailed(str(err)) from err
 
+        if not self._module_groups_discovered:
+            await self._async_discover_module_groups()
+
+        try:
             for group in self._discovered_module_groups():
                 group_registers = build_module_group_registers(
                     group,
@@ -113,12 +117,28 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
         """Discover which documented UMG801 module groups answer over Modbus."""
         registers = list(REGISTERS)
         discovered_groups: list[int] = []
-        self._module_group_labels = await self._async_discover_module_group_labels()
+        try:
+            self._module_group_labels = await self._async_discover_module_group_labels()
+        except asyncio.CancelledError:
+            _LOGGER.debug("UMG801 module discovery was cancelled; skipping modules")
+            self.registers = tuple(registers)
+            self._module_groups = ()
+            self._module_groups_discovered = True
+            return
 
-        for group in range(1, MODULE_GROUP_COUNT + 1):
+        if not self._module_group_labels:
+            self.registers = tuple(registers)
+            self._module_groups = ()
+            self._module_groups_discovered = True
+            return
+
+        for group in sorted(self._module_group_labels):
             group_base = module_group_base_address(group)
             try:
                 await self._client.async_read_holding_registers(group_base, 2)
+            except asyncio.CancelledError:
+                _LOGGER.debug("UMG801 module group probe was cancelled")
+                break
             except JanitzaModbusError:
                 continue
 
