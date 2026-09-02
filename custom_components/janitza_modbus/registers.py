@@ -32,7 +32,9 @@ class JanitzaRegister:
 
     def __post_init__(self) -> None:
         """Default translation keys for static registers only."""
-        if self.translation_key is None and not self.key.startswith("module_"):
+        if self.translation_key is None and not self.key.startswith(
+            ("module_", "virtual_meter_")
+        ):
             object.__setattr__(self, "translation_key", self.key)
 
 
@@ -482,6 +484,13 @@ MODULE_GROUP_BASE_ADDRESS = 19400
 MODULE_GROUP_ADDRESS_STRIDE = 100
 MODULE_GROUP_READ_COUNT = 100
 
+UMG800_MODULE_GROUP_COUNT = 32
+UMG800_MODULE_GROUP_BASE_ADDRESS = 1012
+UMG800_MODULE_GROUP_ADDRESS_STRIDE = 1000
+UMG800_MODULE_GROUP_READ_COUNT = 114
+UMG800_VIRTUAL_METER_NAME_OFFSET = 954
+UMG800_VIRTUAL_METER_NAME_REGISTER_COUNT = 16
+
 _MODULE_REGISTER_SPECS: tuple[
     tuple[str, int, str, str | None, SensorDeviceClass | None, SensorStateClass, bool],
     ...,
@@ -722,6 +731,60 @@ _MODULE_REGISTER_SPECS: tuple[
     ),
 )
 
+# The UMG 800 exposes the same four-channel measurement values as the UMG 801,
+# but arranges each virtual meter group in a 1000-register block.  Offsets are
+# relative to the first current value of a group (1012, 2012, ...).
+_UMG800_MODULE_REGISTER_SPECS: tuple[
+    tuple[str, int, str, str | None, SensorDeviceClass | None, SensorStateClass, bool],
+    ...,
+] = tuple(
+    (
+        key,
+        {
+            0: 0,
+            2: 2,
+            4: 4,
+            6: 6,
+            8: 12,
+            10: 14,
+            12: 16,
+            14: 18,
+            16: 20,
+            18: 22,
+            20: 24,
+            22: 26,
+            24: 28,
+            26: 30,
+            28: 32,
+            30: 34,
+            32: 36,
+            34: 38,
+            36: 40,
+            38: 46,
+            40: 48,
+            42: 50,
+            44: 52,
+            94: 108,
+            96: 110,
+            98: 112,
+        }[offset],
+        name,
+        unit,
+        device_class,
+        state_class,
+        enabled_by_default,
+    )
+    for (
+        key,
+        offset,
+        name,
+        unit,
+        device_class,
+        state_class,
+        enabled_by_default,
+    ) in _MODULE_REGISTER_SPECS
+)
+
 
 def module_group_base_address(group: int) -> int:
     """Return the documented base address for a UMG801 current module group."""
@@ -755,4 +818,49 @@ def build_module_group_registers(
             state_class,
             enabled_by_default,
         ) in _MODULE_REGISTER_SPECS
+    )
+
+
+def umg800_module_group_base_address(group: int) -> int:
+    """Return the default UMG 800 Modbus base for a virtual meter group."""
+    return UMG800_MODULE_GROUP_BASE_ADDRESS + (
+        (int(group) - 1) * UMG800_MODULE_GROUP_ADDRESS_STRIDE
+    )
+
+
+def build_umg800_module_group_registers(
+    group: int,
+    *,
+    label: str | None = None,
+) -> tuple[JanitzaRegister, ...]:
+    """Build sensors for one UMG 800 virtual meter group."""
+    base_address = umg800_module_group_base_address(group)
+    group_name = label or f"Virtual meter {group:02d}"
+    return tuple(
+        JanitzaRegister(
+            key=f"virtual_meter_{group:02d}_{key}",
+            address=base_address + offset,
+            name=f"{group_name} {name}",
+            native_unit_of_measurement=unit,
+            device_class=device_class,
+            state_class=state_class,
+            entity_registry_enabled_default=enabled_by_default,
+        )
+        for (
+            key,
+            offset,
+            name,
+            unit,
+            device_class,
+            state_class,
+            enabled_by_default,
+        ) in _UMG800_MODULE_REGISTER_SPECS
+    )
+
+
+def umg800_virtual_meter_name_address(group: int) -> int:
+    """Return the default Modbus address of a UMG 800 virtual meter name."""
+    return (
+        umg800_module_group_base_address(group)
+        + UMG800_VIRTUAL_METER_NAME_OFFSET
     )

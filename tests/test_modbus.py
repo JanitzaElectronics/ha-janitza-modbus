@@ -276,6 +276,69 @@ def test_module_group_registers_can_use_modbus_module_label() -> None:
     assert named_registers[0].name == "M1 Group 1 Current I1"
 
 
+def test_umg800_module_group_base_addresses_match_default_map() -> None:
+    """UMG 800 virtual meter groups advance in 1000-register steps."""
+    registers = _load_registers_module()
+
+    assert registers.umg800_module_group_base_address(1) == 1012
+    assert registers.umg800_module_group_base_address(2) == 2012
+    assert registers.umg800_module_group_base_address(13) == 13012
+
+
+def test_umg800_module_registers_match_default_map() -> None:
+    """UMG 800 virtual meter sensors use the documented offsets."""
+    registers = _load_registers_module()
+    module_01 = {
+        register.key: register.address
+        for register in registers.build_umg800_module_group_registers(1)
+    }
+    module_02 = {
+        register.key: register.address
+        for register in registers.build_umg800_module_group_registers(2)
+    }
+
+    assert module_01["virtual_meter_01_current_i1"] == 1012
+    assert module_01["virtual_meter_01_active_power_p1"] == 1024
+    assert module_01["virtual_meter_01_active_energy_sum"] == 1064
+    assert module_01["virtual_meter_01_current_thd_i3"] == 1124
+    assert module_02["virtual_meter_02_active_power_sum"] == 2030
+
+
+def test_umg800_virtual_meter_names_match_default_map() -> None:
+    """UMG 800 virtual meter names follow their documented group blocks."""
+    registers = _load_registers_module()
+
+    assert registers.umg800_virtual_meter_name_address(1) == 1966
+    assert registers.umg800_virtual_meter_name_address(2) == 2966
+    assert registers.umg800_virtual_meter_name_address(32) == 32966
+
+
+def test_umg800_virtual_meter_registers_do_not_request_translations() -> None:
+    """Dynamic virtual meter entities use their Modbus-provided names."""
+    registers = _load_registers_module()
+    meter_registers = registers.build_umg800_module_group_registers(
+        1, label="Main distribution"
+    )
+
+    assert meter_registers[0].key == "virtual_meter_01_current_i1"
+    assert meter_registers[0].name == "Main distribution Current I1"
+    assert meter_registers[0].translation_key is None
+
+
+def test_umg801_module_registers_are_unchanged_by_umg800_support() -> None:
+    """Keep the existing UMG 801 module profile stable."""
+    registers = _load_registers_module()
+    module_01 = {
+        register.key: register.address
+        for register in registers.build_module_group_registers(1)
+    }
+
+    assert module_01["module_01_current_i1"] == 19400
+    assert module_01["module_01_active_power_p1"] == 19408
+    assert module_01["module_01_active_energy_sum"] == 19444
+    assert module_01["module_01_current_thd_i3"] == 19498
+
+
 def test_registers_use_only_19xxx_addresses() -> None:
     """Ensure the generic register catalogue stays in the requested range."""
     addresses = _register_addresses()

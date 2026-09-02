@@ -17,9 +17,17 @@ measurement profile.
 - UI based setup through Home Assistant config entries
 - Local polling over Modbus TCP
 - Batched reads of the `19xxx` register block
-- Auto-discovery of readable UMG 801 current module groups
+- Auto-discovery of UMG 800 virtual meters and UMG 801 current module groups
 - Energy dashboard friendly sensor metadata where applicable
 - HACS compatible repository layout
+
+## Release 0.3.0
+
+Adds Modbus-only discovery for UMG 800 virtual meters while retaining the
+existing guarded UMG 801 module path. The UMG 800 is identified through its
+default Modbus device-name mapping before the integration reads the names and
+measurements of up to 32 virtual meters. Physical module metadata supplies
+fallback names when a meter has no configured name.
 
 ## Release 0.2.2
 
@@ -88,11 +96,16 @@ example `19630+`. Those are not enabled by default because the integration
 currently performs one contiguous read of the shared `19000` through `19120`
 block.
 
-For UMG 801 devices, the integration also probes the documented current module
-slot information area and then checks the corresponding module measurement
-blocks starting at `19400`, `19500`, `19600`, and so on. Only detected module
-groups that answer over Modbus are added as entities. This matches native Home
-Assistant Modbus examples such as `19410`, `19514`, and `19708`.
+For UMG 801 devices, the integration probes the documented current module slot
+information area and then checks the corresponding module measurement blocks
+starting at `19400`, `19500`, `19600`, and so on. For a UMG 800 using its
+default Modbus address list, the integration identifies the device at register
+`0` and independently discovers up to 32 named virtual meters. Their names are
+read at `1966`, `2966`, `3966`, and so on; their four-channel measurements start
+at `1012`, `2012`, `3012`, and so on. Physical module information from register
+`54` onward is used only as a fallback for unnamed meter groups. Only groups
+with readable finite measurements are added as entities. Digital-input and
+transfer modules do not create sensor entities.
 
 The UMG 96-PA address list marks `19054` through `19058` and `19086` through
 `19090` as device-specific compared with other UMG-series devices. For that
@@ -111,6 +124,10 @@ The UMG 801 workbook in the repository documents a per-slot information area at
 `4178 + 80 * (slot - 1)`. In that block, `+68` stores the slot state and `+69`
 the module type. The integration uses that slot information to avoid probing
 UMG 801 module ranges on devices that do not expose UMG 801 module metadata.
+
+UMG 800 module discovery requires the device's default Modbus address list. A
+customized active address list can relocate or remove the identity, slot, and
+measurement registers used for discovery.
 
 [contributors-shield]: https://img.shields.io/github/contributors/JanitzaElectronics/ha-janitza-modbus
 [contributors]: https://github.com/JanitzaElectronics/ha-janitza-modbus/graphs/contributors
