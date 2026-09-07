@@ -5,11 +5,20 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from modbus_connection import (
+    ModbusConnectionError,
+    ModbusError,
+    ModbusExceptionError,
+    ModbusProtocolError,
+    ModbusTcpParams,
+    ModbusTimeoutError,
+)
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.components.modbus import async_get_temporary_unit
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -23,28 +32,22 @@ from .const import (
     DOMAIN,
     MIN_SCAN_INTERVAL,
 )
-from .modbus import JanitzaModbusClient, JanitzaModbusError
 from .registers import MIN_REGISTER_ADDRESS
-from .validation import (
-    MODBUS_ERROR_CONNECT,
-    MODBUS_ERROR_INVALID_RESPONSE,
-    MODBUS_ERROR_MODBUS_EXCEPTION,
-    MODBUS_ERROR_NO_RESPONSE,
-    normalize_host,
-)
+from .validation import normalize_host
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def _async_validate_connection(
-    host: str, port: int, unit_id: int
+    hass: HomeAssistant, host: str, port: int, unit_id: int
 ) -> None:
     """Validate that the device answers at the generic 19xxx block."""
-    client = JanitzaModbusClient(host, port, unit_id)
-    try:
-        await client.async_read_holding_registers(MIN_REGISTER_ADDRESS, 2)
-    finally:
-        await client.async_close()
+    async with async_get_temporary_unit(
+        hass,
+        ModbusTcpParams(host=host, port=port),
+        unit_id,
+    ) as unit:
+        await unit.read_holding_registers(MIN_REGISTER_ADDRESS, 2)
 
 
 class JanitzaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -72,11 +75,12 @@ class JanitzaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not errors:
                 try:
                     await _async_validate_connection(
+                        self.hass,
                         user_input[CONF_HOST],
                         user_input[CONF_PORT],
                         user_input[CONF_UNIT_ID],
                     )
-                except JanitzaModbusError as err:
+                except ModbusError as err:
                     errors["base"] = _error_key_for_modbus_error(err)
                 except Exception:
                     _LOGGER.exception("Unexpected error validating Janitza device")
@@ -185,16 +189,15 @@ def _normalize_options_input(user_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _error_key_for_modbus_error(error: JanitzaModbusError) -> str:
+def _error_key_for_modbus_error(error: ModbusError) -> str:
     """Return the setup-flow error key for a Modbus validation failure."""
-    reason = error.reason
-    if reason == MODBUS_ERROR_CONNECT:
-        return "cannot_connect"
-    if reason == MODBUS_ERROR_NO_RESPONSE:
+    if isinstance(error, ModbusTimeoutError):
         return "no_response"
-    if reason == MODBUS_ERROR_MODBUS_EXCEPTION:
+    if isinstance(error, ModbusConnectionError):
+        return "cannot_connect"
+    if isinstance(error, ModbusExceptionError):
         return "modbus_exception"
-    if reason == MODBUS_ERROR_INVALID_RESPONSE:
+    if isinstance(error, ModbusProtocolError):
         return "invalid_response"
     return "unknown"
 

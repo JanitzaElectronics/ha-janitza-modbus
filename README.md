@@ -15,11 +15,19 @@ measurement profile.
 ## Features
 
 - UI based setup through Home Assistant config entries
-- Local polling over Modbus TCP
+- Local polling over Home Assistant's shared Modbus TCP connection
 - Batched reads of the `19xxx` register block
 - Auto-discovery of UMG 800 virtual meters and UMG 801 current module groups
 - Energy dashboard friendly sensor metadata where applicable
 - HACS compatible repository layout
+
+## Release 0.4.0
+
+Migrates the integration to Home Assistant 2026.9's shared Modbus connection
+API. Home Assistant now owns connection setup, request serialization,
+reconnection, and shutdown while the Janitza-specific register maps, UMG 801
+modules, UMG 800 modules, and virtual meters remain unchanged. This release
+requires Home Assistant 2026.9.0 or newer.
 
 ## Release 0.3.0
 

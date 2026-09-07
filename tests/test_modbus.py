@@ -1,12 +1,11 @@
 """Tests for Janitza Modbus helpers."""
 
-import asyncio
 import ast
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import types
-from unittest.mock import AsyncMock, patch
 
 
 def _load_decode_float32():
@@ -66,9 +65,6 @@ def _load_registers_module():
 
 def _load_module(module_name: str, file_name: str):
     """Load an integration module file without importing package __init__."""
-    if file_name == "modbus.py":
-        return _load_modbus_module()
-
     module_path = (
         Path(__file__).parents[1]
         / "custom_components"
@@ -80,39 +76,6 @@ def _load_module(module_name: str, file_name: str):
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _load_modbus_module():
-    """Load the Modbus client with PyModbus and package stubs."""
-    pymodbus_module = types.ModuleType("pymodbus")
-    pymodbus_client_module = types.ModuleType("pymodbus.client")
-
-    class AsyncModbusTcpClient:
-        pass
-
-    pymodbus_client_module.AsyncModbusTcpClient = AsyncModbusTcpClient
-    sys.modules["pymodbus"] = pymodbus_module
-    sys.modules["pymodbus.client"] = pymodbus_client_module
-
-    package_root = Path(__file__).parents[1] / "custom_components"
-    integration_root = package_root / "janitza_modbus"
-    custom_components_module = types.ModuleType("custom_components")
-    custom_components_module.__path__ = [str(package_root)]
-    integration_module = types.ModuleType("custom_components.janitza_modbus")
-    integration_module.__path__ = [str(integration_root)]
-    sys.modules["custom_components"] = custom_components_module
-    sys.modules["custom_components.janitza_modbus"] = integration_module
-
-    module_path = integration_root / "modbus.py"
-    spec = importlib.util.spec_from_file_location(
-        "custom_components.janitza_modbus.modbus", module_path
-    )
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["custom_components.janitza_modbus.modbus"] = module
     spec.loader.exec_module(module)
     return module
 
@@ -169,68 +132,23 @@ def test_normalize_host_rejects_probe_primitives() -> None:
         raise AssertionError(f"Expected host to be rejected: {host}")
 
 
-def test_validate_register_block_rejects_malformed_replies() -> None:
-    """Reject short or malformed Modbus register blocks."""
-    validate_register_block = _load_validation_module().validate_register_block
-
-    validate_register_block([0, 65535], 2)
-
-    for registers in ([1], [1, -1], [1, 65536], [1, "2"], [1, True], None):
-        try:
-            validate_register_block(registers, 2)
-        except ValueError:
-            continue
-        raise AssertionError(f"Expected registers to be rejected: {registers}")
-
-
-def test_classify_modbus_error_messages() -> None:
-    """Classify common PyModbus messages for setup-flow feedback."""
-    validation = _load_validation_module()
-
-    assert (
-        validation.classify_modbus_error("No response received after 3 retries")
-        == validation.MODBUS_ERROR_NO_RESPONSE
+def test_manifest_uses_home_assistant_modbus_platform() -> None:
+    """Use Home Assistant's shared Modbus connection instead of PyModbus."""
+    integration_root = (
+        Path(__file__).parents[1] / "custom_components" / "janitza_modbus"
     )
-    assert (
-        validation.classify_modbus_error("Timed out waiting for response")
-        == validation.MODBUS_ERROR_NO_RESPONSE
-    )
-    assert (
-        validation.classify_modbus_error("Exception Response(131, 3, IllegalAddress)")
-        == validation.MODBUS_ERROR_MODBUS_EXCEPTION
-    )
-    assert (
-        validation.classify_modbus_error("Unexpected transport failure")
-        == validation.MODBUS_ERROR_UNKNOWN
+    manifest = json.loads((integration_root / "manifest.json").read_text())
+    source = "\n".join(
+        path.read_text() for path in integration_root.glob("*.py")
     )
 
-
-def test_modbus_client_uses_documented_register_address() -> None:
-    """Pass the documented Janitza register number through unchanged."""
-    modbus = _load_module("janitza_modbus_client", "modbus.py")
-    response = _FakeResponse([0x4366, 0x0000])
-    connect = AsyncMock(return_value=True)
-    read_holding_registers = AsyncMock(return_value=response)
-
-    with patch.object(
-        modbus, "AsyncModbusTcpClient", autospec=True
-    ) as client_factory:
-        client = client_factory.return_value
-        client.connected = False
-        client.connect = connect
-        client.read_holding_registers = read_holding_registers
-
-        janitza_client = modbus.JanitzaModbusClient("192.168.1.20", 502, 1)
-        registers = asyncio.run(
-            janitza_client.async_read_holding_registers(19000, 2)
-        )
-
-    assert registers == [0x4366, 0x0000]
-    read_holding_registers.assert_awaited_once_with(
-        address=19000,
-        count=2,
-        device_id=1,
-    )
+    assert "modbus" in manifest["dependencies"]
+    assert not manifest.get("requirements")
+    assert "pymodbus" not in source
+    assert "async_get_unit" in (integration_root / "__init__.py").read_text()
+    assert "async_get_temporary_unit" in (
+        integration_root / "config_flow.py"
+    ).read_text()
 
 
 def test_runtime_translation_bundle_exists() -> None:
@@ -404,14 +322,3 @@ def _register_addresses() -> dict[str, int]:
 
     assert len(keys) == len(addresses)
     return dict(zip(keys, addresses))
-
-
-class _FakeResponse:
-    """Small Modbus response stub used by async client tests."""
-
-    def __init__(self, registers: list[int]) -> None:
-        self.registers = registers
-
-    def isError(self) -> bool:
-        """Pretend the Modbus request succeeded."""
-        return False

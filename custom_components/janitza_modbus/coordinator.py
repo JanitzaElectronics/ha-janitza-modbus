@@ -7,13 +7,14 @@ from datetime import timedelta
 import logging
 import struct
 
+from modbus_connection import ModbusError, ModbusUnit
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .codec import decode_finite_float32, decode_string
-from .const import CONF_SCAN_INTERVAL, CONF_UNIT_ID, DOMAIN
-from .modbus import JanitzaModbusClient, JanitzaModbusError
+from .const import CONF_SCAN_INTERVAL, DOMAIN
 from .registers import (
     MAX_REGISTER_ADDRESS,
     MIN_REGISTER_ADDRESS,
@@ -57,13 +58,11 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
 
     config_entry: ConfigEntry
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, unit: ModbusUnit
+    ) -> None:
         """Initialize the Janitza coordinator."""
-        self._client = JanitzaModbusClient(
-            host=entry.data["host"],
-            port=int(entry.data["port"]),
-            unit_id=int(entry.data[CONF_UNIT_ID]),
-        )
+        self._unit = unit
         self.registers: tuple[JanitzaRegister, ...] = REGISTERS
         self._module_group_labels: dict[int, str] = {}
         self._module_profile: str | None = None
@@ -77,18 +76,14 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
             update_interval=timedelta(seconds=int(entry.data[CONF_SCAN_INTERVAL])),
         )
 
-    async def async_close(self) -> None:
-        """Close the Modbus client."""
-        await self._client.async_close()
-
     async def _async_update_data(self) -> dict[str, float | None]:
         """Fetch all configured 19xxx register values."""
         count = MAX_REGISTER_ADDRESS - MIN_REGISTER_ADDRESS + 2
         try:
-            registers = await self._client.async_read_holding_registers(
+            registers = await self._unit.read_holding_registers(
                 MIN_REGISTER_ADDRESS, count
             )
-        except JanitzaModbusError as err:
+        except ModbusError as err:
             raise UpdateFailed(str(err)) from err
 
         try:
@@ -107,7 +102,7 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
             for group in self._discovered_module_groups():
                 group_registers = self._build_module_group_registers(group)
                 group_base = self._module_group_base_address(group)
-                group_block = await self._client.async_read_holding_registers(
+                group_block = await self._unit.read_holding_registers(
                     group_base,
                     self._module_group_read_count(),
                 )
@@ -119,7 +114,7 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
                     )
         except (IndexError, struct.error, ValueError) as err:
             raise UpdateFailed(str(err)) from err
-        except JanitzaModbusError as err:
+        except ModbusError as err:
             raise UpdateFailed(str(err)) from err
 
         return values
@@ -166,7 +161,7 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
             group_base = self._module_group_base_address(group)
             try:
                 if self._module_profile == "umg800":
-                    group_block = await self._client.async_read_holding_registers(
+                    group_block = await self._unit.read_holding_registers(
                         group_base,
                         UMG800_MODULE_GROUP_READ_COUNT,
                     )
@@ -181,11 +176,11 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
                     ):
                         continue
                 else:
-                    await self._client.async_read_holding_registers(group_base, 2)
+                    await self._unit.read_holding_registers(group_base, 2)
             except asyncio.CancelledError:
                 _LOGGER.debug("Janitza module group probe was cancelled")
                 break
-            except JanitzaModbusError:
+            except ModbusError:
                 continue
 
             discovered_groups.append(group)
@@ -205,11 +200,11 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
     async def _async_is_umg800(self) -> bool:
         """Identify a UMG 800 using its default Modbus device-name mapping."""
         try:
-            registers = await self._client.async_read_holding_registers(
+            registers = await self._unit.read_holding_registers(
                 UMG800_DEVICE_NAME_ADDRESS,
                 UMG800_DEVICE_NAME_REGISTER_COUNT,
             )
-        except JanitzaModbusError:
+        except ModbusError:
             return False
 
         device_name = decode_string(registers).upper().replace(" ", "")
@@ -225,15 +220,15 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
                 (slot - 1) * UMG801_MODULE_INFO_ADDRESS_STRIDE
             )
             try:
-                name_registers = await self._client.async_read_holding_registers(
+                name_registers = await self._unit.read_holding_registers(
                     slot_base,
                     MODULE_INFO_NAME_REGISTER_COUNT,
                 )
-                state_type = await self._client.async_read_holding_registers(
+                state_type = await self._unit.read_holding_registers(
                     slot_base + UMG801_MODULE_INFO_STATE_OFFSET,
                     2,
                 )
-            except JanitzaModbusError:
+            except ModbusError:
                 continue
 
             state = state_type[0]
@@ -259,15 +254,15 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
                 (slot - 1) * UMG800_MODULE_INFO_ADDRESS_STRIDE
             )
             try:
-                name_registers = await self._client.async_read_holding_registers(
+                name_registers = await self._unit.read_holding_registers(
                     slot_base,
                     MODULE_INFO_NAME_REGISTER_COUNT,
                 )
-                state_and_type = await self._client.async_read_holding_registers(
+                state_and_type = await self._unit.read_holding_registers(
                     slot_base + UMG800_MODULE_INFO_STATE_OFFSET,
                     2,
                 )
-            except JanitzaModbusError:
+            except ModbusError:
                 continue
 
             module_type = state_and_type[1]
@@ -302,11 +297,11 @@ class JanitzaCoordinator(DataUpdateCoordinator[dict[str, float | None]]):
 
         for group in range(1, UMG800_MODULE_GROUP_COUNT + 1):
             try:
-                name_registers = await self._client.async_read_holding_registers(
+                name_registers = await self._unit.read_holding_registers(
                     umg800_virtual_meter_name_address(group),
                     UMG800_VIRTUAL_METER_NAME_REGISTER_COUNT,
                 )
-            except JanitzaModbusError:
+            except ModbusError:
                 continue
 
             meter_name = decode_string(name_registers)
